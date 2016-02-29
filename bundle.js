@@ -1,11 +1,130 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-'use strict';
+"use strict";
 
-var _jquery = require('jquery');
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Hex = exports.Hex = function () {
+  function Hex(context, x, y, size) {
+    _classCallCheck(this, Hex);
+
+    this.visited = false;
+
+    this.context = context;
+    this.label = "";
+
+    this.labelColor = "Black";
+    this.fill = "white";
+    this.stroke = "black";
+
+    this.degOffset = 0; // 0 is flat top, 30 is pointy top
+    this.center = {
+      x: x,
+      y: y
+    };
+    this.size = size;
+
+    this.nodeIds = [];
+    for (var i = 0; i < 6; i++) {
+      this.nodeIds.push(-1);
+    }
+  }
+
+  /*
+    Sets the id of the node at the given index
+  */
+
+
+  _createClass(Hex, [{
+    key: "setNodeId",
+    value: function setNodeId(id, index) {
+      this.nodeIds[index] = id;
+    }
+
+    /*
+      Gets the id of the node at the given index
+    */
+
+  }, {
+    key: "getNodeId",
+    value: function getNodeId(index) {
+      return this.nodeIds[index];
+    }
+
+    /*
+      Gets the position of the ith corner of the hexagon.
+    */
+
+  }, {
+    key: "corner",
+    value: function corner(i) {
+      var degrees = 60 * i + this.degOffset;
+      var radians = Math.PI / 180 * degrees;
+      return {
+        x: this.center.x + this.size * Math.cos(radians),
+        y: this.center.y + this.size * Math.sin(radians)
+      };
+    }
+
+    /*
+      Gets all the corners of the hexagon.
+    */
+
+  }, {
+    key: "corners",
+    value: function corners() {
+      var cornerPoints = [];
+      for (var i = 0; i < 6; i++) {
+        cornerPoints.push(this.corner(i));
+      }
+      return cornerPoints;
+    }
+
+    /*
+      Draws the hex to the current context
+    */
+
+  }, {
+    key: "draw",
+    value: function draw() {
+      var cornerPoints = this.corners();
+
+      // draw the hex
+      this.context.beginPath();
+      this.context.moveTo(cornerPoints[0].x, cornerPoints[0].y);
+      for (var i = 1; i < 6; i++) {
+        this.context.lineTo(cornerPoints[i].x, cornerPoints[i].y);
+      }
+      this.context.closePath();
+
+      this.context.strokeStyle = this.stroke;
+      this.context.fillStyle = this.fill;
+      this.context.stroke();
+      this.context.fill();
+
+      // add the label
+      this.context.textAlign = "center";
+      this.context.font = "15px Arial";
+      this.context.fillStyle = this.labelColor;
+      this.context.fillText(this.label, this.center.x, this.center.y);
+    }
+  }]);
+
+  return Hex;
+}();
+},{}],2:[function(require,module,exports){
+"use strict";
+
+var _jquery = require("jquery");
 
 var _jquery2 = _interopRequireDefault(_jquery);
 
-var _hex = require('./render/hex');
+var _map = require("./map.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -17,47 +136,291 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
   var context = canvas.getContext("2d");
 
-  (0, _hex.drawHexPointy)(context, 100, 100, 20);
-  (0, _hex.drawHexFlat)(context, 140, 100, 20);
+  var testMap = new _map.Map(context, 5, // the radius of the hex grid in hexes
+  10, // node radius
+  30, // hex size
+  { x: 400, y: 400 } // center
+  );
+
+  testMap.animateNodePlacement();
 });
-},{"./render/hex":2,"jquery":3}],2:[function(require,module,exports){
+},{"./map.js":3,"jquery":5}],3:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
+exports.Map = undefined;
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _hex = require("./hex.js");
+
+var _node = require("./node.js");
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
 /*
-  Borrowed from https://github.com/Bockit/hex.git
+  A hexagonal shapped hex map with nodes surrounding
+  each hex.
+
+
+  TODO:
 */
-var getCornerPointy = exports.getCornerPointy = getCornerGen(30);
-var getCornerFlat = exports.getCornerFlat = getCornerGen(0);
-var drawHexPointy = exports.drawHexPointy = drawHexGen(getCornerPointy);
-var drawHexFlat = exports.drawHexFlat = drawHexGen(getCornerFlat);
 
-function getCornerGen(degreesOffset) {
-    return function getCorner(x, y, size, i) {
-        var degrees = 60 * i + degreesOffset;
-        var radians = Math.PI / 180 * degrees;
-        return [x + size * Math.cos(radians), y + size * Math.sin(radians)];
-    };
-}
+var Map = exports.Map = function () {
 
-function drawHexGen(corner) {
-    return function drawHex(context, x, y, size) {
-        context.beginPath();
-        context.moveTo.apply(context, corner(x, y, size, 0));
-        context.lineTo.apply(context, corner(x, y, size, 1));
-        context.lineTo.apply(context, corner(x, y, size, 2));
-        context.lineTo.apply(context, corner(x, y, size, 3));
-        context.lineTo.apply(context, corner(x, y, size, 4));
-        context.lineTo.apply(context, corner(x, y, size, 5));
-        context.closePath();
-        context.stroke();
-    };
-}
-},{}],3:[function(require,module,exports){
+  /*
+    Radius: radius of the grid
+    centerHex: the Hex in the center of the grid
+  */
+
+  function Map(context, radius, nodeRadius, hexSize, center) {
+    _classCallCheck(this, Map);
+
+    this.context = context;
+
+    this.hexes = {};
+    this.nodes = [];
+    this.radius = radius;
+
+    this.nodeRadius = nodeRadius;
+    this.hexSize = hexSize;
+
+    // build the hex grid (from redblog hex grids)
+    for (var q = -this.radius; q <= this.radius; q++) {
+      var r1 = Math.max(-this.radius, -q - this.radius);
+      var r2 = Math.min(this.radius, -q + this.radius);
+      for (var r = r1; r <= r2; r++) {
+        var screenCoord = this.hexToPixelFlat(q, r, hexSize);
+        var newHex = new _hex.Hex(context, center.x + screenCoord.x, center.y + screenCoord.y, hexSize);
+        newHex.label = q + "," + r;
+        this.set(q, r, newHex);
+      }
+    }
+
+    // color center hex
+    this.get(0, 0).fill = "green";
+
+    // Test getNeighbors function
+    /*
+    var neighbors = this.getNeighbors(1, 1);
+      for(var i = 0; i < neighbors.length; i++) {
+      this.get(neighbors[i].q, neighbors[i].r).fill = "orange";
+    }
+    */
+
+    // Test adding nodes
+    this.addNodes(0, 0, 0);
+
+    console.log(this.hexes);
+
+    // add nodes to all the hexes starting at the center hex
+  }
+
+  /*
+    Set the hexagon at the axial position q, r
+  */
+
+
+  _createClass(Map, [{
+    key: "set",
+    value: function set(q, r, hex) {
+      this.hexes[q + "," + r] = hex;
+    }
+
+    // TODO: add another set function with two parameters if possible
+
+    /*
+      Gets the hexagon at the axial position q, r
+    */
+
+  }, {
+    key: "get",
+    value: function get(q, r) {
+      return this.hexes[q + "," + r];
+    }
+
+    /*
+      Determines if a hex exists at q, r
+    */
+
+  }, {
+    key: "exists",
+    value: function exists(q, r) {
+      return this.hexes[q + "," + r] != null;
+    }
+
+    // TODO: add another get function with one parameters if possible
+
+  }, {
+    key: "getNeighbors",
+    value: function getNeighbors(q, r) {
+      var neighbors = [];
+      var directions = [{ q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 }, { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 }];
+
+      for (var i = 0; i < directions.length; i++) {
+        var newNeighbor = {
+          q: q + directions[i].q,
+          r: r + directions[i].r
+        };
+        if (this.get(newNeighbor.q, newNeighbor.r)) {
+          neighbors.push(newNeighbor);
+        }
+      }
+      return neighbors;
+    }
+
+    /*
+      Adds the surrounding nodes to the given hex
+    */
+
+  }, {
+    key: "addNodes",
+    value: function addNodes(q, r, lastId) {
+      var newNodes = [];
+      var lastId = lastId;
+      for (var i = 0; i < 6; i++) {
+        if (this.get(q, r).getNodeId(i) == -1) {
+          this.get(q, r).setNodeId(lastId, i);
+          newNodes.push(lastId);
+          var corner = this.get(q, r).corner(i);
+          var newNode = new _node.Node(this.context, corner.x, corner.y, this.nodeRadius);
+          newNode.label = lastId + "";
+          this.nodes.push(newNode);
+          lastId += 1;
+        }
+      }
+      this.get(q, r).visited = true;
+      this.get(q, r).fill = "yellow";
+
+      var neighbors = this.getNeighbors(q, r);
+      for (var i = 0; i < neighbors.length; i++) {
+        if (!this.get(neighbors[i].q, neighbors[i].r).visited) {
+          this.get(neighbors[i].q, neighbors[i].r).setNodeId(newNodes[i], (i + 4) % 6);
+          this.get(neighbors[i].q, neighbors[i].r).setNodeId(newNodes[(i + 1) % 6], (i + 2) % 6);
+          this.addNodes(neighbors[i].q, neighbors[i].r, lastId);
+        }
+      }
+    }
+
+    /*
+      Draws the entire map.
+    */
+
+  }, {
+    key: "draw",
+    value: function draw() {
+      for (var hex in this.hexes) {
+        this.hexes[hex].draw();
+      }
+
+      for (var i = 0; i < this.nodes.length; i++) {
+        this.nodes[i].draw();
+      }
+    }
+  }, {
+    key: "animateNodePlacement",
+    value: function animateNodePlacement() {
+      for (var hex in this.hexes) {
+        this.hexes[hex].draw();
+      }
+
+      var self = this;
+      var i = 0;
+      var id = setInterval(function () {
+        self.nodes[i].draw();
+        if (self.nodes.length > i) {
+          i += 1;
+        } else {
+          clearInterval(id);
+        }
+      }, 30);
+    }
+
+    /*
+      Converts a hex to a pixel for the pointy hex layout.
+      Taken from https://github.com/Bockit/hex
+    */
+
+  }, {
+    key: "hexToPixelPointy",
+    value: function hexToPixelPointy(q, r, size) {
+      var x = size * Math.sqrt(3) * (q + r / 2);
+      var y = size * (3 / 2) * r;
+      return { x: x, y: y };
+    }
+
+    /*
+      Converts a hex to a pixel for the flat hex layout.
+      Taken from https://github.com/Bockit/hex
+    */
+
+  }, {
+    key: "hexToPixelFlat",
+    value: function hexToPixelFlat(q, r, size) {
+      var x = size * (3 / 2) * q;
+      var y = size * Math.sqrt(3) * (r + q / 2);
+      return { x: x, y: y };
+    }
+  }]);
+
+  return Map;
+}();
+},{"./hex.js":1,"./node.js":4}],4:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Node = exports.Node = function () {
+
+  // place a node at the corner of each hex
+
+  function Node(context, x, y, radius) {
+    _classCallCheck(this, Node);
+
+    this.context = context;
+    this.label = "";
+
+    // used for coloring the nodes
+    this.labelColor = "Black";
+    this.fill = "white";
+    this.stroke = "black";
+
+    this.center = { x: x, y: y };
+    this.radius = radius;
+  }
+
+  _createClass(Node, [{
+    key: "draw",
+    value: function draw() {
+      this.context.beginPath();
+      this.context.arc(this.center.x, this.center.y, this.radius, 0, 2.0 * Math.PI);
+      this.context.closePath();
+      this.context.fillStyle = this.fill;
+      this.context.strokeStyle = this.stroke;
+      this.context.fill();
+      this.context.stroke();
+
+      // add the label
+      this.context.textAlign = "center";
+      this.context.font = "5px Arial";
+      this.context.fillStyle = this.labelColor;
+      this.context.fillText(this.label, this.center.x, this.center.y);
+    }
+  }]);
+
+  return Node;
+}();
+},{}],5:[function(require,module,exports){
 /*!
- * jQuery JavaScript Library v2.2.0
+ * jQuery JavaScript Library v2.2.1
  * http://jquery.com/
  *
  * Includes Sizzle.js
@@ -67,7 +430,7 @@ function drawHexGen(corner) {
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2016-01-08T20:02Z
+ * Date: 2016-02-22T19:11Z
  */
 
 (function( global, factory ) {
@@ -123,7 +486,7 @@ var support = {};
 
 
 var
-	version = "2.2.0",
+	version = "2.2.1",
 
 	// Define a local copy of jQuery
 	jQuery = function( selector, context ) {
@@ -4537,7 +4900,7 @@ function on( elem, types, selector, data, fn, one ) {
 	if ( fn === false ) {
 		fn = returnFalse;
 	} else if ( !fn ) {
-		return this;
+		return elem;
 	}
 
 	if ( one === 1 ) {
@@ -5186,14 +5549,14 @@ var
 	rscriptTypeMasked = /^true\/(.*)/,
 	rcleanScript = /^\s*<!(?:\[CDATA\[|--)|(?:\]\]|--)>\s*$/g;
 
+// Manipulating tables requires a tbody
 function manipulationTarget( elem, content ) {
-	if ( jQuery.nodeName( elem, "table" ) &&
-		jQuery.nodeName( content.nodeType !== 11 ? content : content.firstChild, "tr" ) ) {
+	return jQuery.nodeName( elem, "table" ) &&
+		jQuery.nodeName( content.nodeType !== 11 ? content : content.firstChild, "tr" ) ?
 
-		return elem.getElementsByTagName( "tbody" )[ 0 ] || elem;
-	}
-
-	return elem;
+		elem.getElementsByTagName( "tbody" )[ 0 ] ||
+			elem.appendChild( elem.ownerDocument.createElement( "tbody" ) ) :
+		elem;
 }
 
 // Replace/restore the type attribute of script elements for safe DOM manipulation
@@ -5700,7 +6063,7 @@ var getStyles = function( elem ) {
 		// FF meanwhile throws on frame elements through "defaultView.getComputedStyle"
 		var view = elem.ownerDocument.defaultView;
 
-		if ( !view.opener ) {
+		if ( !view || !view.opener ) {
 			view = window;
 		}
 
@@ -5849,15 +6212,18 @@ function curCSS( elem, name, computed ) {
 		style = elem.style;
 
 	computed = computed || getStyles( elem );
+	ret = computed ? computed.getPropertyValue( name ) || computed[ name ] : undefined;
+
+	// Support: Opera 12.1x only
+	// Fall back to style even without computed
+	// computed is undefined for elems on document fragments
+	if ( ( ret === "" || ret === undefined ) && !jQuery.contains( elem.ownerDocument, elem ) ) {
+		ret = jQuery.style( elem, name );
+	}
 
 	// Support: IE9
 	// getPropertyValue is only needed for .css('filter') (#12537)
 	if ( computed ) {
-		ret = computed.getPropertyValue( name ) || computed[ name ];
-
-		if ( ret === "" && !jQuery.contains( elem.ownerDocument, elem ) ) {
-			ret = jQuery.style( elem, name );
-		}
 
 		// A tribute to the "awesome hack by Dean Edwards"
 		// Android Browser returns percentage for some values,
@@ -7907,7 +8273,7 @@ jQuery.extend( jQuery.event, {
 				// But now, this "simulate" function is used only for events
 				// for which stopPropagation() is noop, so there is no need for that anymore.
 				//
-				// For the compat branch though, guard for "click" and "submit"
+				// For the 1.x branch though, guard for "click" and "submit"
 				// events is still used, but was moved to jQuery.event.stopPropagation function
 				// because `originalEvent` should point to the original event for the constancy
 				// with other events and for more focused logic
@@ -9677,11 +10043,8 @@ jQuery.fn.extend( {
 			}
 
 			// Add offsetParent borders
-			// Subtract offsetParent scroll positions
-			parentOffset.top += jQuery.css( offsetParent[ 0 ], "borderTopWidth", true ) -
-				offsetParent.scrollTop();
-			parentOffset.left += jQuery.css( offsetParent[ 0 ], "borderLeftWidth", true ) -
-				offsetParent.scrollLeft();
+			parentOffset.top += jQuery.css( offsetParent[ 0 ], "borderTopWidth", true );
+			parentOffset.left += jQuery.css( offsetParent[ 0 ], "borderLeftWidth", true );
 		}
 
 		// Subtract parent offsets and element margins
@@ -9888,4 +10251,4 @@ if ( !noGlobal ) {
 return jQuery;
 }));
 
-},{}]},{},[1]);
+},{}]},{},[2]);

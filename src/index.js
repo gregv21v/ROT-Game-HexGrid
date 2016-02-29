@@ -1,5 +1,6 @@
-import $ from 'jquery';
-import { drawHexPointy, drawHexFlat } from './render/hex'
+import $ from 'jquery'
+import {Map} from "./map.js"
+
 
 $(document).ready(function() {
   var canvas = document.createElement("canvas");
@@ -9,8 +10,14 @@ $(document).ready(function() {
 
   var context = canvas.getContext("2d");
 
-  drawHexPointy(context, 100, 100, 20);
-  drawHexFlat(context, 140, 100, 20);
 
+  var testMap = new Map(
+    context,
+    5, // the radius of the hex grid in hexes
+    10, // node radius
+    30, // hex size
+    {x:400, y:400} // center
+  );
 
+  testMap.animateNodePlacement();
 });
