@@ -1,5 +1,6 @@
 import $ from 'jquery'
 import {Map} from "./map.js"
+import {MapCreationAnimator} from "./mapCreationAnimator.js"
 
 
 $(document).ready(function() {
@@ -16,8 +17,10 @@ $(document).ready(function() {
     5, // the radius of the hex grid in hexes
     10, // node radius
     30, // hex size
-    {x:400, y:400} // center
+    {x:450, y:400} // center
   );
 
-  testMap.animateNodePlacement();
+  var animator = new MapCreationAnimator(testMap);
+
+  animator.animate(600);
 });

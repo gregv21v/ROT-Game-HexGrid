@@ -126,6 +126,8 @@ var _jquery2 = _interopRequireDefault(_jquery);
 
 var _map = require("./map.js");
 
+var _mapCreationAnimator = require("./mapCreationAnimator.js");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 (0, _jquery2.default)(document).ready(function () {
@@ -139,12 +141,14 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
   var testMap = new _map.Map(context, 5, // the radius of the hex grid in hexes
   10, // node radius
   30, // hex size
-  { x: 400, y: 400 } // center
+  { x: 450, y: 400 } // center
   );
 
-  testMap.animateNodePlacement();
+  var animator = new _mapCreationAnimator.MapCreationAnimator(testMap);
+
+  animator.animate(600);
 });
-},{"./map.js":3,"jquery":5}],3:[function(require,module,exports){
+},{"./map.js":3,"./mapCreationAnimator.js":4,"jquery":6}],3:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -183,21 +187,14 @@ var Map = exports.Map = function () {
     this.hexes = {};
     this.nodes = [];
     this.radius = radius;
+    this.center = center;
 
     this.nodeRadius = nodeRadius;
     this.hexSize = hexSize;
 
     // build the hex grid (from redblog hex grids)
-    for (var q = -this.radius; q <= this.radius; q++) {
-      var r1 = Math.max(-this.radius, -q - this.radius);
-      var r2 = Math.min(this.radius, -q + this.radius);
-      for (var r = r1; r <= r2; r++) {
-        var screenCoord = this.hexToPixelFlat(q, r, hexSize);
-        var newHex = new _hex.Hex(context, center.x + screenCoord.x, center.y + screenCoord.y, hexSize);
-        newHex.label = q + "," + r;
-        this.set(q, r, newHex);
-      }
-    }
+    this.hexOrdering = []; // keeps track of the order in which each hex is added
+    this.generateGrid();
 
     // color center hex
     this.get(0, 0).fill = "green";
@@ -253,22 +250,47 @@ var Map = exports.Map = function () {
 
     // TODO: add another get function with one parameters if possible
 
+    /*
+      Get the neighbors of the given hex at coordinate (q, r)
+    */
+
   }, {
     key: "getNeighbors",
     value: function getNeighbors(q, r) {
       var neighbors = [];
-      var directions = [{ q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 }, { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 }];
+      var directions = [{ q: 0, r: -1 }, { q: 1, r: -1 }, { q: 1, r: 0 }, { q: 0, r: 1 }, { q: -1, r: 1 }, { q: -1, r: 0 }];
 
       for (var i = 0; i < directions.length; i++) {
         var newNeighbor = {
           q: q + directions[i].q,
-          r: r + directions[i].r
+          r: r + directions[i].r,
+          index: i
         };
         if (this.get(newNeighbor.q, newNeighbor.r)) {
           neighbors.push(newNeighbor);
         }
       }
       return neighbors;
+    }
+
+    /*
+      Generates the hex grid
+    */
+
+  }, {
+    key: "generateGrid",
+    value: function generateGrid() {
+      for (var q = -this.radius; q <= this.radius; q++) {
+        var r1 = Math.max(-this.radius, -q - this.radius);
+        var r2 = Math.min(this.radius, -q + this.radius);
+        for (var r = r1; r <= r2; r++) {
+          var screenCoord = this.hexToPixelFlat(q, r, this.hexSize);
+          var newHex = new _hex.Hex(this.context, this.center.x + screenCoord.x, this.center.y + screenCoord.y, this.hexSize);
+          newHex.label = q + "," + r;
+          this.set(q, r, newHex);
+          this.hexOrdering.push({ q: q, r: r }); // for keeping track of how hexes are placed
+        }
+      }
     }
 
     /*
@@ -280,10 +302,22 @@ var Map = exports.Map = function () {
     value: function addNodes(q, r, lastId) {
       var newNodes = [];
       var lastId = lastId;
+
+      // fill in any nodes neighboring to this one
+      var neighbors = this.getNeighbors(q, r);
+
+      // Fill in any existing nodes from neighbors that have already been visited.
+      for (var i = 0; i < neighbors.length; i++) {
+        if (this.get(neighbors[i].q, neighbors[i].r).visited) {
+          this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 1) % 6), (neighbors[i].index + 4) % 6);
+          this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 2) % 6), (neighbors[i].index + 5) % 6);
+        }
+      }
+
+      // add nodes to current hex
       for (var i = 0; i < 6; i++) {
         if (this.get(q, r).getNodeId(i) == -1) {
           this.get(q, r).setNodeId(lastId, i);
-          newNodes.push(lastId);
           var corner = this.get(q, r).corner(i);
           var newNode = new _node.Node(this.context, corner.x, corner.y, this.nodeRadius);
           newNode.label = lastId + "";
@@ -292,13 +326,10 @@ var Map = exports.Map = function () {
         }
       }
       this.get(q, r).visited = true;
-      this.get(q, r).fill = "yellow";
 
-      var neighbors = this.getNeighbors(q, r);
+      // Get nodes from the neighbors of this hex that haven't been visited
       for (var i = 0; i < neighbors.length; i++) {
         if (!this.get(neighbors[i].q, neighbors[i].r).visited) {
-          this.get(neighbors[i].q, neighbors[i].r).setNodeId(newNodes[i], (i + 4) % 6);
-          this.get(neighbors[i].q, neighbors[i].r).setNodeId(newNodes[(i + 1) % 6], (i + 2) % 6);
           this.addNodes(neighbors[i].q, neighbors[i].r, lastId);
         }
       }
@@ -318,24 +349,6 @@ var Map = exports.Map = function () {
       for (var i = 0; i < this.nodes.length; i++) {
         this.nodes[i].draw();
       }
-    }
-  }, {
-    key: "animateNodePlacement",
-    value: function animateNodePlacement() {
-      for (var hex in this.hexes) {
-        this.hexes[hex].draw();
-      }
-
-      var self = this;
-      var i = 0;
-      var id = setInterval(function () {
-        self.nodes[i].draw();
-        if (self.nodes.length > i) {
-          i += 1;
-        } else {
-          clearInterval(id);
-        }
-      }, 30);
     }
 
     /*
@@ -367,7 +380,79 @@ var Map = exports.Map = function () {
 
   return Map;
 }();
-},{"./hex.js":1,"./node.js":4}],4:[function(require,module,exports){
+},{"./hex.js":1,"./node.js":5}],4:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var MapCreationAnimator = exports.MapCreationAnimator = function () {
+  function MapCreationAnimator(map) {
+    _classCallCheck(this, MapCreationAnimator);
+
+    this.map = map;
+    this.iteration = 0;
+    this.stage = 0; // 0: Setup the hex grid
+    // 1: Setup the nodes around the grid
+    this.intervalId = 0;
+  }
+
+  /*
+    Plays the full animation
+  */
+
+
+  _createClass(MapCreationAnimator, [{
+    key: "animate",
+    value: function animate(interval) {
+      var self = this;
+      this.intervalId = setInterval(function () {
+        console.log(self.stage);
+        self.frame(self);
+      }, interval);
+    }
+
+    /*
+      Plays a single frame of the animation
+    */
+
+  }, {
+    key: "frame",
+    value: function frame(self) {
+
+      if (self.stage == 0) {
+        // setup the hexes
+
+        if (self.iteration < self.map.hexOrdering.length) {
+          var hexLoc = self.map.hexOrdering[self.iteration];
+          self.map.get(hexLoc.q, hexLoc.r).draw();
+          self.iteration += 1;
+        } else {
+          self.iteration = 0;
+          self.stage = 1;
+        }
+      } else if (self.stage == 1) {
+        if (self.iteration < self.map.nodes.length) {
+          self.map.nodes[self.iteration].draw();
+          self.iteration += 1;
+        } else {
+          self.iteration = 0;
+          self.stage = 2;
+        }
+      } else {
+        clearInterval(self.intervalId);
+      }
+    }
+  }]);
+
+  return MapCreationAnimator;
+}();
+},{}],5:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -410,7 +495,7 @@ var Node = exports.Node = function () {
 
       // add the label
       this.context.textAlign = "center";
-      this.context.font = "5px Arial";
+      this.context.font = "10px Arial";
       this.context.fillStyle = this.labelColor;
       this.context.fillText(this.label, this.center.x, this.center.y);
     }
@@ -418,7 +503,7 @@ var Node = exports.Node = function () {
 
   return Node;
 }();
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.2.1
  * http://jquery.com/

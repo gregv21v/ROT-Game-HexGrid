@@ -21,22 +21,16 @@ export class Map {
     this.hexes = {};
     this.nodes = [];
     this.radius = radius;
+    this.center = center;
 
     this.nodeRadius = nodeRadius;
     this.hexSize = hexSize;
 
 
     // build the hex grid (from redblog hex grids)
-    for (var q = -this.radius; q <= this.radius; q++) {
-        var r1 = Math.max(-this.radius, -q - this.radius);
-        var r2 = Math.min(this.radius, -q + this.radius);
-        for (var r = r1; r <= r2; r++) {
-          var screenCoord = this.hexToPixelFlat(q, r, hexSize);
-          var newHex = new Hex(context, center.x + screenCoord.x, center.y + screenCoord.y, hexSize);
-          newHex.label = q + "," + r;
-          this.set(q, r, newHex);
-        }
-    }
+    this.hexOrdering = []; // keeps track of the order in which each hex is added
+    this.generateGrid();
+
 
     // color center hex
     this.get(0, 0).fill = "green";
@@ -90,22 +84,25 @@ export class Map {
 
   // TODO: add another get function with one parameters if possible
 
-
+  /*
+    Get the neighbors of the given hex at coordinate (q, r)
+  */
   getNeighbors(q, r) {
     var neighbors = [];
     var directions = [
-      {q: 1, r: 0},
-      {q: 1, r: -1},
       {q: 0, r: -1},
-      {q: -1, r: 0},
+      {q: 1, r: -1},
+      {q: 1, r: 0},
+      {q: 0, r: 1},
       {q: -1, r: 1},
-      {q: 0, r: 1}
+      {q: -1, r: 0}
     ];
 
     for(var i = 0; i < directions.length; i++) {
       var newNeighbor = {
         q: q + directions[i].q,
-        r: r + directions[i].r
+        r: r + directions[i].r,
+        index: i
       };
       if(this.get(newNeighbor.q, newNeighbor.r)) {
         neighbors.push(newNeighbor);
@@ -115,15 +112,46 @@ export class Map {
   }
 
   /*
+    Generates the hex grid
+  */
+  generateGrid() {
+    for (var q = -this.radius; q <= this.radius; q++) {
+        var r1 = Math.max(-this.radius, -q - this.radius);
+        var r2 = Math.min(this.radius, -q + this.radius);
+        for (var r = r1; r <= r2; r++) {
+          var screenCoord = this.hexToPixelFlat(q, r, this.hexSize);
+          var newHex = new Hex(this.context, this.center.x + screenCoord.x, this.center.y + screenCoord.y, this.hexSize);
+          newHex.label = q + "," + r;
+          this.set(q, r, newHex);
+          this.hexOrdering.push({q: q, r: r}) // for keeping track of how hexes are placed
+        }
+    }
+  }
+
+  /*
     Adds the surrounding nodes to the given hex
   */
   addNodes(q, r, lastId) {
     var newNodes = [];
     var lastId = lastId;
+
+    // fill in any nodes neighboring to this one
+    var neighbors = this.getNeighbors(q, r);
+
+    // Fill in any existing nodes from neighbors that have already been visited.
+    for(var i = 0; i < neighbors.length; i++) {
+      if(this.get(neighbors[i].q, neighbors[i].r).visited) {
+        this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 1) % 6), (neighbors[i].index + 4) % 6)
+        this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 2) % 6), (neighbors[i].index + 5) % 6)
+      }
+    }
+
+
+
+    // add nodes to current hex
     for(var i = 0; i < 6; i++) {
       if(this.get(q, r).getNodeId(i) == -1) {
         this.get(q, r).setNodeId(lastId, i);
-        newNodes.push(lastId);
         var corner = this.get(q, r).corner(i);
         var newNode = new Node(this.context, corner.x, corner.y, this.nodeRadius);
         newNode.label = lastId + "";
@@ -132,14 +160,10 @@ export class Map {
       }
     }
     this.get(q, r).visited = true;
-    this.get(q, r).fill = "yellow"
 
-
-    var neighbors = this.getNeighbors(q, r);
+    // Get nodes from the neighbors of this hex that haven't been visited
     for(var i = 0; i < neighbors.length; i++) {
       if(!this.get(neighbors[i].q, neighbors[i].r).visited) {
-        this.get(neighbors[i].q, neighbors[i].r).setNodeId(newNodes[i], (i+4) % 6)
-        this.get(neighbors[i].q, neighbors[i].r).setNodeId(newNodes[(i+1) % 6], (i+2) % 6)
         this.addNodes(neighbors[i].q, neighbors[i].r, lastId)
       }
     }
@@ -160,24 +184,7 @@ export class Map {
   }
 
 
-  animateNodePlacement() {
-    for(var hex in this.hexes) {
-      this.hexes[hex].draw();
-    }
 
-    var self = this;
-    var i = 0;
-    var id = setInterval(function () {
-      self.nodes[i].draw();
-      if(self.nodes.length > i) {
-        i += 1;
-      } else {
-        clearInterval(id);
-      }
-    }, 30);
-
-
-  }
 
 
 

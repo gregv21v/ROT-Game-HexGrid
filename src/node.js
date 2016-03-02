@@ -26,7 +26,7 @@ export class Node {
 
     // add the label
     this.context.textAlign = "center"
-    this.context.font = "5px Arial"
+    this.context.font = "10px Arial"
     this.context.fillStyle = this.labelColor
     this.context.fillText(this.label, this.center.x, this.center.y)
   }
