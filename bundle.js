@@ -4,8 +4,22 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+var GameProperties = exports.GameProperties = {
+  teamColors: ["red", "blue", "green", "orange", "brown", "black"]
+};
+},{}],2:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Hex = undefined;
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _gameProperties = require("./gameProperties.js");
+
+var _point = require("./point.js");
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -13,20 +27,17 @@ var Hex = exports.Hex = function () {
   function Hex(context, x, y, size) {
     _classCallCheck(this, Hex);
 
+    this.owner = 1;
     this.visited = false;
 
     this.context = context;
     this.label = "";
 
-    this.labelColor = "Black";
-    this.fill = "white";
+    this.labelColor = "black";
     this.stroke = "black";
 
     this.degOffset = 0; // 0 is flat top, 30 is pointy top
-    this.center = {
-      x: x,
-      y: y
-    };
+    this.center = new _point.Point(x, y);
     this.size = size;
 
     this.nodeIds = [];
@@ -35,12 +46,17 @@ var Hex = exports.Hex = function () {
     }
   }
 
-  /*
-    Sets the id of the node at the given index
-  */
-
-
   _createClass(Hex, [{
+    key: "fill",
+    value: function fill() {
+      return _gameProperties.GameProperties.teamColors[this.owner];
+    }
+
+    /*
+      Sets the id of the node at the given index
+    */
+
+  }, {
     key: "setNodeId",
     value: function setNodeId(id, index) {
       this.nodeIds[index] = id;
@@ -103,7 +119,7 @@ var Hex = exports.Hex = function () {
       this.context.closePath();
 
       this.context.strokeStyle = this.stroke;
-      this.context.fillStyle = this.fill;
+      this.context.fillStyle = this.fill();
       this.context.stroke();
       this.context.fill();
 
@@ -117,7 +133,7 @@ var Hex = exports.Hex = function () {
 
   return Hex;
 }();
-},{}],2:[function(require,module,exports){
+},{"./gameProperties.js":1,"./point.js":7}],3:[function(require,module,exports){
 "use strict";
 
 var _jquery = require("jquery");
@@ -127,6 +143,8 @@ var _jquery2 = _interopRequireDefault(_jquery);
 var _map = require("./map.js");
 
 var _mapCreationAnimator = require("./mapCreationAnimator.js");
+
+var _hex = require("./hex.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -138,17 +156,36 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
   var context = canvas.getContext("2d");
 
-  var testMap = new _map.Map(context, 5, // the radius of the hex grid in hexes
-  10, // node radius
-  30, // hex size
-  { x: 450, y: 400 } // center
+  /*
+  var testMap = new Map(
+    context,
+    5, // the radius of the hex grid in hexes
+    10, // node radius
+    30, // hex size
+    {x:450, y:400} // center
   );
+    var animator = new MapCreationAnimator(testMap);
+    animator.animate(400);
+  */
 
-  var animator = new _mapCreationAnimator.MapCreationAnimator(testMap);
+  var testHex = new _hex.Hex(context, 100, 100, 20);
+  testHex.draw();
 
-  animator.animate(600);
+  // event handling
 });
-},{"./map.js":3,"./mapCreationAnimator.js":4,"jquery":6}],3:[function(require,module,exports){
+
+/*
+  What needs to be tested:
+  TODO: clicking on a node
+  TODO: ensure that hexes are properly added to nodes
+
+  Functions to test:
+    Map.countHexesControlledBy(player)
+    Map.addHexesToNodes()
+
+    Node.clicked(screenX, screenY)
+*/
+},{"./hex.js":2,"./map.js":4,"./mapCreationAnimator.js":5,"jquery":8}],4:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -170,6 +207,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 
   TODO:
+
+
+
+  Access individual hex
+  Access individual node
+  Owner of hex
+
+  Hex:
+    Ownership
+  Node:
+    Ownership
 */
 
 var Map = exports.Map = function () {
@@ -294,6 +342,64 @@ var Map = exports.Map = function () {
     }
 
     /*
+      Add the hexes surrunding a given node,
+      to that node.
+    */
+
+  }, {
+    key: "addHexesToNodes",
+    value: function addHexesToNodes() {
+      for (var coord in this.hexes) {
+        for (var i = 0; i < 6; i++) {
+          var nodeId = this.hexes[coord].getNodeId(i);
+          var node = this.nodes[nodeId];
+          node.connectedHexes.push(coord);
+        }
+      }
+    }
+
+    /*
+      Counts the number of hexes controlled by a given
+      player.
+    */
+
+  }, {
+    key: "countHexesControlledBy",
+    value: function countHexesControlledBy(player) {
+      var count = 0;
+      // each hex's control is already given
+      // over to the given player when that player
+      // selects that node, so it is unnecessary
+      // to check the surrounding nodes of a given hex.
+      for (var key in this.hexes) {
+        if (this.hexes[key] == player) {
+          count += 1;
+        }
+      }
+
+      return count;
+    }
+
+    /*
+      Checks to see if the given hex can be
+      controlled by a given player.
+    */
+
+  }, {
+    key: "canClaim",
+    value: function canClaim(player, id) {
+      var adjNodes = [];
+      // get all adjacent nodes to the given nodeId
+
+      // if they are all owned by the player return true
+    }
+  }, {
+    key: "claim",
+    value: function claim(player, id) {}
+    // gives a given node to a player.
+
+
+    /*
       Adds the surrounding nodes to the given hex
     */
 
@@ -309,8 +415,8 @@ var Map = exports.Map = function () {
       // Fill in any existing nodes from neighbors that have already been visited.
       for (var i = 0; i < neighbors.length; i++) {
         if (this.get(neighbors[i].q, neighbors[i].r).visited) {
-          this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 1) % 6), (neighbors[i].index + 4) % 6);
-          this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 2) % 6), (neighbors[i].index + 5) % 6);
+          this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 2) % 6), (neighbors[i].index + 4) % 6);
+          this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 1) % 6), (neighbors[i].index + 5) % 6);
         }
       }
 
@@ -380,7 +486,7 @@ var Map = exports.Map = function () {
 
   return Map;
 }();
-},{"./hex.js":1,"./node.js":5}],4:[function(require,module,exports){
+},{"./hex.js":2,"./node.js":6}],5:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -452,14 +558,17 @@ var MapCreationAnimator = exports.MapCreationAnimator = function () {
 
   return MapCreationAnimator;
 }();
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.Node = undefined;
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _point = require("./point.js");
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -470,6 +579,8 @@ var Node = exports.Node = function () {
   function Node(context, x, y, radius) {
     _classCallCheck(this, Node);
 
+    this.owner = 0;
+
     this.context = context;
     this.label = "";
 
@@ -478,11 +589,28 @@ var Node = exports.Node = function () {
     this.fill = "white";
     this.stroke = "black";
 
-    this.center = { x: x, y: y };
+    this.center = new _point.Point(x, y);
     this.radius = radius;
+
+    // the corrindates of each connected hex
+    this.connectedHexes = []; // should be about 3
   }
 
+  /*
+    Determines if a given node has been clicked
+  */
+
+
   _createClass(Node, [{
+    key: "clicked",
+    value: function clicked(screenX, screenY) {
+      if (this.center.distance(new _point.Point(screenX, screenY)) < this.radius) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }, {
     key: "draw",
     value: function draw() {
       this.context.beginPath();
@@ -503,7 +631,35 @@ var Node = exports.Node = function () {
 
   return Node;
 }();
-},{}],6:[function(require,module,exports){
+},{"./point.js":7}],7:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Point = exports.Point = function () {
+  function Point(x, y) {
+    _classCallCheck(this, Point);
+
+    this.x = x;
+    this.y = y;
+  }
+
+  _createClass(Point, [{
+    key: "distance",
+    value: function distance(point) {
+      return Math.pow(this.x - point.x, 2) + Math.pow(this.y - point.y, 2);
+    }
+  }]);
+
+  return Point;
+}();
+},{}],8:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.2.1
  * http://jquery.com/
@@ -10336,4 +10492,4 @@ if ( !noGlobal ) {
 return jQuery;
 }));
 
-},{}]},{},[2]);
+},{}]},{},[3]);

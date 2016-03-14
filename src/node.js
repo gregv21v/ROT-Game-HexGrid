@@ -1,7 +1,11 @@
+import {Point} from "./point.js"
+
 export class Node {
 
   // place a node at the corner of each hex
   constructor(context, x, y, radius) {
+    this.owner = 0;
+
     this.context = context;
     this.label = "";
 
@@ -10,8 +14,23 @@ export class Node {
     this.fill = "white";
     this.stroke = "black";
 
-    this.center = {x: x, y: y};
+    this.center = new Point(x, y);
     this.radius = radius;
+
+    // the corrindates of each connected hex
+    this.connectedHexes = []; // should be about 3
+  }
+
+
+  /*
+    Determines if a given node has been clicked
+  */
+  clicked(screenX, screenY) {
+    if(this.center.distance(new Point(screenX, screenY)) < this.radius) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
 

@@ -1,10 +1,18 @@
-import $ from 'jquery'
-import {Map} from "./map.js"
-import {MapCreationAnimator} from "./mapCreationAnimator.js"
-import {Hex} from "./hex.js"
+"use strict";
 
+var _jquery = require("jquery");
 
-$(document).ready(function() {
+var _jquery2 = _interopRequireDefault(_jquery);
+
+var _map = require("./map.js");
+
+var _mapCreationAnimator = require("./mapCreationAnimator.js");
+
+var _hex = require("./hex.js");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+(0, _jquery2.default)(document).ready(function () {
   var canvas = document.createElement("canvas");
   canvas.width = 1000;
   canvas.height = 1000;
@@ -20,19 +28,15 @@ $(document).ready(function() {
     30, // hex size
     {x:450, y:400} // center
   );
-
-  var animator = new MapCreationAnimator(testMap);
-
-  animator.animate(400);
+    var animator = new MapCreationAnimator(testMap);
+    animator.animate(400);
   */
 
-  var testHex = new Hex(context, 100, 100, 20);
+  var testHex = new _hex.Hex(context, 100, 100, 20);
   testHex.draw();
 
   // event handling
 });
-
-
 
 /*
   What needs to be tested:

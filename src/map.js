@@ -6,6 +6,17 @@ import {Node} from "./node.js"
 
 
   TODO:
+
+
+
+  Access individual hex
+  Access individual node
+  Owner of hex
+
+  Hex:
+    Ownership
+  Node:
+    Ownership
 */
 
 
@@ -129,6 +140,55 @@ export class Map {
   }
 
   /*
+    Add the hexes surrunding a given node,
+    to that node.
+  */
+  addHexesToNodes() {
+    for(var coord in this.hexes) {
+      for(var i = 0; i < 6; i++) {
+        var nodeId = this.hexes[coord].getNodeId(i);
+        var node = this.nodes[nodeId];
+        node.connectedHexes.push(coord);
+      }
+    }
+  }
+
+  /*
+    Counts the number of hexes controlled by a given
+    player.
+  */
+  countHexesControlledBy(player) {
+    var count = 0;
+    // each hex's control is already given
+    // over to the given player when that player
+    // selects that node, so it is unnecessary
+    // to check the surrounding nodes of a given hex.
+    for(var key in this.hexes) {
+      if(this.hexes[key] == player) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
+  /*
+    Checks to see if the given hex can be
+    controlled by a given player.
+  */
+  canClaim(player, id) {
+    var adjNodes = [];
+    // get all adjacent nodes to the given nodeId
+
+    // if they are all owned by the player return true
+  }
+
+  claim(player, id) {
+    // gives a given node to a player.
+  }
+
+
+  /*
     Adds the surrounding nodes to the given hex
   */
   addNodes(q, r, lastId) {
@@ -141,8 +201,8 @@ export class Map {
     // Fill in any existing nodes from neighbors that have already been visited.
     for(var i = 0; i < neighbors.length; i++) {
       if(this.get(neighbors[i].q, neighbors[i].r).visited) {
-        this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 1) % 6), (neighbors[i].index + 4) % 6)
-        this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 2) % 6), (neighbors[i].index + 5) % 6)
+        this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 2) % 6), (neighbors[i].index + 4) % 6)
+        this.get(q, r).setNodeId(this.get(neighbors[i].q, neighbors[i].r).getNodeId((neighbors[i].index + 1) % 6), (neighbors[i].index + 5) % 6)
       }
     }
 

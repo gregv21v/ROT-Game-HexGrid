@@ -1,27 +1,32 @@
+
+import {GameProperties} from "./gameProperties.js"
+import {Point} from "./point.js"
+
 export class Hex {
 
 
   constructor(context, x, y, size) {
+    this.owner = 1;
     this.visited = false;
 
     this.context = context;
     this.label = "";
 
-    this.labelColor = "Black";
-    this.fill = "white";
+    this.labelColor = "black";
     this.stroke = "black";
 
     this.degOffset = 0; // 0 is flat top, 30 is pointy top
-    this.center = {
-      x: x,
-      y: y
-    };
+    this.center = new Point(x, y)
     this.size = size;
 
     this.nodeIds = [];
     for(var i = 0; i < 6; i++) {
       this.nodeIds.push(-1);
     }
+  }
+
+  fill() {
+    return GameProperties.teamColors[this.owner];
   }
 
   /*
@@ -78,7 +83,7 @@ export class Hex {
     this.context.closePath()
 
     this.context.strokeStyle = this.stroke;
-    this.context.fillStyle = this.fill;
+    this.context.fillStyle = this.fill();
     this.context.stroke()
     this.context.fill()
 
