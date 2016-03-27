@@ -6,7 +6,8 @@ export class Hex {
 
 
   constructor(context, x, y, size) {
-    this.owner = 1;
+
+    this.owner = 0;
     this.visited = false;
 
     this.context = context;
@@ -25,6 +26,9 @@ export class Hex {
     }
   }
 
+  /*
+    Determines the color of the given hex.
+  */
   fill() {
     return GameProperties.teamColors[this.owner];
   }

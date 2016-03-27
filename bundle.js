@@ -27,7 +27,7 @@ var Hex = exports.Hex = function () {
   function Hex(context, x, y, size) {
     _classCallCheck(this, Hex);
 
-    this.owner = 1;
+    this.owner = 0;
     this.visited = false;
 
     this.context = context;
@@ -45,6 +45,11 @@ var Hex = exports.Hex = function () {
       this.nodeIds.push(-1);
     }
   }
+
+  /*
+    Determines the color of the given hex.
+  */
+
 
   _createClass(Hex, [{
     key: "fill",
@@ -146,32 +151,80 @@ var _mapCreationAnimator = require("./mapCreationAnimator.js");
 
 var _hex = require("./hex.js");
 
+var _node = require("./node.js");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+/*
+  TODO: Complete click functionality
+          --> commit
+          --> create new branch
+*/
+
 (0, _jquery2.default)(document).ready(function () {
+  var container = document.createElement("div");
+  //container.addClass("container");
+
   var canvas = document.createElement("canvas");
   canvas.width = 1000;
   canvas.height = 1000;
+
+  //container.appendChild(canvas);
   document.body.appendChild(canvas);
 
   var context = canvas.getContext("2d");
+  context.fillRect(0, 0, canvas.width, canvas.height);
 
-  /*
-  var testMap = new Map(
-    context,
-    5, // the radius of the hex grid in hexes
-    10, // node radius
-    30, // hex size
-    {x:450, y:400} // center
+  var testMap = new _map.Map(context, 5, // the radius of the hex grid in hexes
+  10, // node radius
+  30, // hex size
+  { x: 450, y: 350 } // center
   );
-    var animator = new MapCreationAnimator(testMap);
-    animator.animate(400);
-  */
 
-  var testHex = new _hex.Hex(context, 100, 100, 20);
-  testHex.draw();
+  testMap.addHexesToNodes();
+
+  // starting spots
+  testMap.nodes[49].owner = 1;
+  testMap.nodes[210].owner = 2;
+  testMap.nodes[24].owner = 3;
+  testMap.nodes[121].owner = 4;
+
+  testMap.claim(1, 46);
+  testMap.claim(1, 47);
+  testMap.claim(1, 52);
+  testMap.claim(1, 51);
+  testMap.claim(1, 50);
+  testMap.assignHexes();
+
+  testMap.draw();
+
+  //console.log(testMap);
+
+  //var animator = new MapCreationAnimator(testMap);
+  //animator.animate(400);
+
+  //var testNode = new Node(context, 30, 100, 20);
+  //var testHex = new Hex(context, 100, 100, 20);
+  //testHex.draw();
+  //testNode.draw();
 
   // event handling
+  canvas.addEventListener("mousedown", function (evnt) {
+    /*
+    console.log("Client: " + [evnt.clientX, evnt.clientY]);
+    console.log("Screen: " + [evnt.screenX, evnt.screenY]);
+    console.log("Page: " + [evnt.pageX, evnt.pageY]);
+    if(testNode.clicked(evnt.clientX, evnt.clientY)) {
+      console.log("Clicked");
+        context.beginPath();
+      context.arc(evnt.clientX, evnt.clientY, 1, 0, 2.0 * Math.PI);
+      context.closePath();
+      context.fillStyle = "orange";
+      context.fill();
+    }
+    */
+    testMap.nodeClicked(evnt.pageX, evnt.pageY);
+  });
 });
 
 /*
@@ -179,13 +232,16 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
   TODO: clicking on a node
   TODO: ensure that hexes are properly added to nodes
 
-  Functions to test:
-    Map.countHexesControlledBy(player)
-    Map.addHexesToNodes()
+  Functions to test: (** == Done)
 
-    Node.clicked(screenX, screenY)
+    **Map.addHexesToNodes()
+    **Map.canClaim(player, id)
+      => **Map.claim(player, id)
+      => Map.countHexesControlledBy(player)
+
+    **Node.clicked(screenX, screenY)
 */
-},{"./hex.js":2,"./map.js":4,"./mapCreationAnimator.js":5,"jquery":8}],4:[function(require,module,exports){
+},{"./hex.js":2,"./map.js":4,"./mapCreationAnimator.js":5,"./node.js":6,"jquery":8}],4:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -198,6 +254,8 @@ var _createClass = function () { function defineProperties(target, props) { for 
 var _hex = require("./hex.js");
 
 var _node = require("./node.js");
+
+var _gameProperties = require("./gameProperties.js");
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -231,6 +289,8 @@ var Map = exports.Map = function () {
     _classCallCheck(this, Map);
 
     this.context = context;
+    this.playerTurn = 1;
+    this.playerCount = 4;
 
     this.hexes = {};
     this.nodes = [];
@@ -245,7 +305,7 @@ var Map = exports.Map = function () {
     this.generateGrid();
 
     // color center hex
-    this.get(0, 0).fill = "green";
+    //this.get(0, 0).fill = "green";
 
     // Test getNeighbors function
     /*
@@ -258,7 +318,8 @@ var Map = exports.Map = function () {
     // Test adding nodes
     this.addNodes(0, 0, 0);
 
-    console.log(this.hexes);
+    //console.log(this.hexes);
+    //console.log(this.nodes);
 
     // add nodes to all the hexes starting at the center hex
   }
@@ -319,6 +380,25 @@ var Map = exports.Map = function () {
         }
       }
       return neighbors;
+    }
+
+    /*
+      Gets the index of the neighbor.
+      The index determines where that neigbor is relative to
+      another hex.
+        -1 indicates that that hex (q1, r1) and (q2, r2) are not neighbors.
+    */
+
+  }, {
+    key: "getNeighborsIndex",
+    value: function getNeighborsIndex(q1, r1, q2, r2) {
+      var directions = [{ q: 0, r: -1 }, { q: 1, r: -1 }, { q: 1, r: 0 }, { q: 0, r: 1 }, { q: -1, r: 1 }, { q: -1, r: 0 }];
+      for (var i = 0; i < directions.length; i++) {
+        if (q2 == q1 + directions[i].q && r2 == r1 + directions[i].r) {
+          return i;
+        }
+      }
+      return -1;
     }
 
     /*
@@ -383,6 +463,11 @@ var Map = exports.Map = function () {
     /*
       Checks to see if the given hex can be
       controlled by a given player.
+        TODO: There are duplicates when creating the
+      list of adjNodes. One way to fix this would be by looking
+      at a pattern between node index. I know that one node has id (1,3)
+      another (3, 5), and another (1, 5). A google drawing of this is stored
+      in the in the google drive. (the diagram may be wrong or something... ???)
     */
 
   }, {
@@ -390,14 +475,73 @@ var Map = exports.Map = function () {
     value: function canClaim(player, id) {
       var adjNodes = [];
       // get all adjacent nodes to the given nodeId
+      for (var i = 0; i < this.nodes[id].connectedHexes.length; i++) {
+        var hex = this.hexes[this.nodes[id].connectedHexes[i]];
+
+        // find the nodes adjacent to the given node
+        for (var j = 0; j < 6; j++) {
+          if (hex.getNodeId(j) == id) {
+            adjNodes.push(hex.getNodeId((j + 5) % 6));
+            adjNodes.push(hex.getNodeId((j + 1) % 6));
+          }
+        }
+      }
+      for (var i = 0; i < adjNodes.length; i++) {
+        if (this.nodes[adjNodes[i]].owner == player) {
+          return true;
+        }
+      }
+      return false;
 
       // if they are all owned by the player return true
     }
+
+    /*
+      Give a given node to a given player.
+    */
+
   }, {
     key: "claim",
-    value: function claim(player, id) {}
-    // gives a given node to a player.
+    value: function claim(player, id) {
+      // gives a given node to a player.
+      if (this.canClaim(player, id)) {
+        this.nodes[id].owner = player;
+      }
 
+      // update the hexes
+      this.assignHexes();
+    }
+
+    /*
+      Assign hexes to their corresponding players.
+    */
+
+  }, {
+    key: "assignHexes",
+    value: function assignHexes() {
+      for (var hex in this.hexes) {
+        var hex = this.hexes[hex];
+
+        var ownerships = [];
+        // populate the ownership array
+        for (var i = 0; i < _gameProperties.GameProperties.teamColors.length; i++) {
+          ownerships.push(0);
+        }
+
+        for (var i = 0; i < 6; i++) {
+          ownerships[this.nodes[hex.getNodeId(i)].owner] += 1;
+        }
+
+        // find the majority
+        var maxIndex = 1; // player 0 does not count
+        for (var i = 2; i < ownerships.length; i++) {
+          if (ownerships[maxIndex] < ownerships[i]) {
+            maxIndex = i;
+          }
+        }
+        if (ownerships[maxIndex] != 0) hex.owner = maxIndex;else hex.owner = 0;
+      }
+    }
 
     /*
       Adds the surrounding nodes to the given hex
@@ -426,6 +570,7 @@ var Map = exports.Map = function () {
           this.get(q, r).setNodeId(lastId, i);
           var corner = this.get(q, r).corner(i);
           var newNode = new _node.Node(this.context, corner.x, corner.y, this.nodeRadius);
+          newNode.owner = 0;
           newNode.label = lastId + "";
           this.nodes.push(newNode);
           lastId += 1;
@@ -458,6 +603,28 @@ var Map = exports.Map = function () {
     }
 
     /*
+      Checks all the nodes to see if they have been clicked.
+    */
+
+  }, {
+    key: "nodeClicked",
+    value: function nodeClicked(screenX, screenY) {
+      for (var i = 0; i < this.nodes.length; i++) {
+        if (this.nodes[i].clicked(screenX, screenY)) {
+          console.log("Player Turn: " + this.playerTurn);
+          console.log("Node Id: " + i);
+          console.log("Player Color: " + _gameProperties.GameProperties.teamColors[this.playerTurn]);
+          if (this.canClaim(this.playerTurn, i)) {
+            console.log("Claimed: " + i);
+            this.claim(this.playerTurn, i);
+            this.playerTurn = 1 + (this.playerTurn + 1) % (this.playerCount - 1);
+            this.draw();
+          }
+        }
+      }
+    }
+
+    /*
       Converts a hex to a pixel for the pointy hex layout.
       Taken from https://github.com/Bockit/hex
     */
@@ -486,7 +653,7 @@ var Map = exports.Map = function () {
 
   return Map;
 }();
-},{"./hex.js":2,"./node.js":6}],5:[function(require,module,exports){
+},{"./gameProperties.js":1,"./hex.js":2,"./node.js":6}],5:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -570,6 +737,8 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 var _point = require("./point.js");
 
+var _gameProperties = require("./gameProperties.js");
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var Node = exports.Node = function () {
@@ -586,7 +755,6 @@ var Node = exports.Node = function () {
 
     // used for coloring the nodes
     this.labelColor = "Black";
-    this.fill = "white";
     this.stroke = "black";
 
     this.center = new _point.Point(x, y);
@@ -597,14 +765,24 @@ var Node = exports.Node = function () {
   }
 
   /*
-    Determines if a given node has been clicked
+    Determines the color of the given hex.
   */
 
 
   _createClass(Node, [{
+    key: "fill",
+    value: function fill() {
+      return _gameProperties.GameProperties.teamColors[this.owner];
+    }
+
+    /*
+      Determines if a given node has been clicked
+    */
+
+  }, {
     key: "clicked",
     value: function clicked(screenX, screenY) {
-      if (this.center.distance(new _point.Point(screenX, screenY)) < this.radius) {
+      if (this.center.distance(new _point.Point(screenX, screenY)) <= this.radius) {
         return true;
       } else {
         return false;
@@ -616,7 +794,7 @@ var Node = exports.Node = function () {
       this.context.beginPath();
       this.context.arc(this.center.x, this.center.y, this.radius, 0, 2.0 * Math.PI);
       this.context.closePath();
-      this.context.fillStyle = this.fill;
+      this.context.fillStyle = this.fill();
       this.context.strokeStyle = this.stroke;
       this.context.fill();
       this.context.stroke();
@@ -631,7 +809,7 @@ var Node = exports.Node = function () {
 
   return Node;
 }();
-},{"./point.js":7}],7:[function(require,module,exports){
+},{"./gameProperties.js":1,"./point.js":7}],7:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -653,7 +831,7 @@ var Point = exports.Point = function () {
   _createClass(Point, [{
     key: "distance",
     value: function distance(point) {
-      return Math.pow(this.x - point.x, 2) + Math.pow(this.y - point.y, 2);
+      return Math.sqrt(Math.pow(this.x - point.x, 2) + Math.pow(this.y - point.y, 2));
     }
   }]);
 

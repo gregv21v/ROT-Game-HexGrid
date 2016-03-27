@@ -1,5 +1,6 @@
 import {Hex} from "./hex.js"
 import {Node} from "./node.js"
+import {GameProperties} from "./gameProperties.js"
 /*
   A hexagonal shapped hex map with nodes surrounding
   each hex.
@@ -28,6 +29,8 @@ export class Map {
   */
   constructor(context, radius, nodeRadius, hexSize, center) {
     this.context = context;
+    this.playerTurn = 1;
+    this.playerCount = 4;
 
     this.hexes = {};
     this.nodes = [];
@@ -44,7 +47,7 @@ export class Map {
 
 
     // color center hex
-    this.get(0, 0).fill = "green";
+    //this.get(0, 0).fill = "green";
 
     // Test getNeighbors function
     /*
@@ -58,7 +61,8 @@ export class Map {
     // Test adding nodes
     this.addNodes(0, 0, 0);
 
-    console.log(this.hexes);
+    //console.log(this.hexes);
+    //console.log(this.nodes);
 
 
 
@@ -123,6 +127,32 @@ export class Map {
   }
 
   /*
+    Gets the index of the neighbor.
+    The index determines where that neigbor is relative to
+    another hex.
+
+    -1 indicates that that hex (q1, r1) and (q2, r2) are not neighbors.
+  */
+  getNeighborsIndex(q1, r1, q2, r2) {
+    var directions = [
+      {q: 0, r: -1},
+      {q: 1, r: -1},
+      {q: 1, r: 0},
+      {q: 0, r: 1},
+      {q: -1, r: 1},
+      {q: -1, r: 0}
+    ];
+    for(var i = 0; i < directions.length; i++) {
+      if(q2 == q1 + directions[i].q && r2 == r1 + directions[i].r) {
+        return i;
+      }
+    }
+    return -1;
+
+  }
+
+
+  /*
     Generates the hex grid
   */
   generateGrid() {
@@ -172,20 +202,91 @@ export class Map {
     return count;
   }
 
+
+
   /*
     Checks to see if the given hex can be
     controlled by a given player.
+
+    TODO: There are duplicates when creating the
+    list of adjNodes. One way to fix this would be by looking
+    at a pattern between node index. I know that one node has id (1,3)
+    another (3, 5), and another (1, 5). A google drawing of this is stored
+    in the in the google drive. (the diagram may be wrong or something... ???)
   */
   canClaim(player, id) {
     var adjNodes = [];
     // get all adjacent nodes to the given nodeId
+    for(var i = 0; i < this.nodes[id].connectedHexes.length; i++) {
+      var hex = this.hexes[this.nodes[id].connectedHexes[i]];
+
+      // find the nodes adjacent to the given node
+      for(var j = 0; j < 6; j++) {
+        if(hex.getNodeId(j) == id) {
+          adjNodes.push(hex.getNodeId((j+5) % 6))
+          adjNodes.push(hex.getNodeId((j+1) % 6))
+        }
+      }
+    }
+    for(var i = 0; i < adjNodes.length; i++) {
+      if(this.nodes[adjNodes[i]].owner == player) {
+        return true;
+      }
+    }
+    return false;
+
+
+
 
     // if they are all owned by the player return true
   }
 
+  /*
+    Give a given node to a given player.
+  */
   claim(player, id) {
     // gives a given node to a player.
+    if(this.canClaim(player, id)) {
+      this.nodes[id].owner = player;
+    }
+
+    // update the hexes
+    this.assignHexes();
   }
+
+
+  /*
+    Assign hexes to their corresponding players.
+  */
+  assignHexes() {
+    for(var hex in this.hexes) {
+      var hex = this.hexes[hex];
+
+      var ownerships = [];
+      // populate the ownership array
+      for(var i = 0; i < GameProperties.teamColors.length; i++) {
+        ownerships.push(0);
+      }
+
+      for(var i = 0; i < 6; i++) {
+        ownerships[this.nodes[hex.getNodeId(i)].owner] += 1;
+      }
+
+      // find the majority
+      var maxIndex = 1; // player 0 does not count
+      for(var i = 2; i < ownerships.length; i++) {
+        if(ownerships[maxIndex] < ownerships[i]) {
+          maxIndex = i;
+        }
+      }
+      if(ownerships[maxIndex] != 0)
+        hex.owner = maxIndex;
+      else
+        hex.owner = 0;
+    }
+  }
+
+
 
 
   /*
@@ -206,14 +307,13 @@ export class Map {
       }
     }
 
-
-
     // add nodes to current hex
     for(var i = 0; i < 6; i++) {
       if(this.get(q, r).getNodeId(i) == -1) {
         this.get(q, r).setNodeId(lastId, i);
         var corner = this.get(q, r).corner(i);
         var newNode = new Node(this.context, corner.x, corner.y, this.nodeRadius);
+        newNode.owner = 0;
         newNode.label = lastId + "";
         this.nodes.push(newNode);
         lastId += 1;
@@ -243,6 +343,26 @@ export class Map {
     }
   }
 
+
+
+  /*
+    Checks all the nodes to see if they have been clicked.
+  */
+  nodeClicked(screenX, screenY) {
+    for(var i = 0; i < this.nodes.length; i++) {
+      if(this.nodes[i].clicked(screenX, screenY)) {
+        console.log("Player Turn: " + this.playerTurn);
+        console.log("Node Id: " + i);
+        console.log("Player Color: " + GameProperties.teamColors[this.playerTurn]);
+        if(this.canClaim(this.playerTurn, i)) {
+          console.log("Claimed: " + i);
+          this.claim(this.playerTurn, i);
+          this.playerTurn = 1 + (this.playerTurn + 1) % (this.playerCount - 1);
+          this.draw();
+        }
+      }
+    }
+  }
 
 
 

@@ -1,4 +1,5 @@
 import {Point} from "./point.js"
+import {GameProperties} from "./gameProperties.js"
 
 export class Node {
 
@@ -11,7 +12,6 @@ export class Node {
 
     // used for coloring the nodes
     this.labelColor = "Black";
-    this.fill = "white";
     this.stroke = "black";
 
     this.center = new Point(x, y);
@@ -21,12 +21,18 @@ export class Node {
     this.connectedHexes = []; // should be about 3
   }
 
+  /*
+    Determines the color of the given hex.
+  */
+  fill() {
+    return GameProperties.teamColors[this.owner];
+  }
 
   /*
     Determines if a given node has been clicked
   */
   clicked(screenX, screenY) {
-    if(this.center.distance(new Point(screenX, screenY)) < this.radius) {
+    if(this.center.distance(new Point(screenX, screenY)) <= this.radius) {
       return true;
     } else {
       return false;
@@ -38,7 +44,7 @@ export class Node {
     this.context.beginPath()
     this.context.arc(this.center.x, this.center.y, this.radius, 0, 2.0 * Math.PI);
     this.context.closePath();
-    this.context.fillStyle = this.fill;
+    this.context.fillStyle = this.fill();
     this.context.strokeStyle = this.stroke;
     this.context.fill();
     this.context.stroke();
