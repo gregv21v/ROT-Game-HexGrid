@@ -27,7 +27,7 @@ export class Map {
     Radius: radius of the grid
     centerHex: the Hex in the center of the grid
   */
-  constructor(context, radius, nodeRadius, hexSize, center) {
+  constructor(radius, center) {
     this.context = context;
     this.playerTurn = 1;
     this.playerCount = 4;
@@ -35,14 +35,7 @@ export class Map {
     this.hexes = {};
     this.nodes = [];
     this.radius = radius;
-    this.center = center;
 
-    this.nodeRadius = nodeRadius;
-    this.hexSize = hexSize;
-
-
-    // build the hex grid (from redblog hex grids)
-    this.hexOrdering = []; // keeps track of the order in which each hex is added
     this.generateGrid();
 
 
@@ -160,11 +153,8 @@ export class Map {
         var r1 = Math.max(-this.radius, -q - this.radius);
         var r2 = Math.min(this.radius, -q + this.radius);
         for (var r = r1; r <= r2; r++) {
-          var screenCoord = this.hexToPixelFlat(q, r, this.hexSize);
-          var newHex = new Hex(this.context, this.center.x + screenCoord.x, this.center.y + screenCoord.y, this.hexSize);
-          newHex.label = q + "," + r;
+          var newHex = new Hex();
           this.set(q, r, newHex);
-          this.hexOrdering.push({q: q, r: r}) // for keeping track of how hexes are placed
         }
     }
   }
@@ -311,10 +301,8 @@ export class Map {
     for(var i = 0; i < 6; i++) {
       if(this.get(q, r).getNodeId(i) == -1) {
         this.get(q, r).setNodeId(lastId, i);
-        var corner = this.get(q, r).corner(i);
-        var newNode = new Node(this.context, corner.x, corner.y, this.nodeRadius);
+        var newNode = new Node();
         newNode.owner = 0;
-        newNode.label = lastId + "";
         this.nodes.push(newNode);
         lastId += 1;
       }
@@ -330,39 +318,6 @@ export class Map {
   }
 
 
-  /*
-    Draws the entire map.
-  */
-  draw() {
-    for(var hex in this.hexes) {
-      this.hexes[hex].draw();
-    }
-
-    for(var i = 0; i < this.nodes.length; i++) {
-      this.nodes[i].draw();
-    }
-  }
-
-
-
-  /*
-    Checks all the nodes to see if they have been clicked.
-  */
-  nodeClicked(screenX, screenY) {
-    for(var i = 0; i < this.nodes.length; i++) {
-      if(this.nodes[i].clicked(screenX, screenY)) {
-        console.log("Player Turn: " + this.playerTurn);
-        console.log("Node Id: " + i);
-        console.log("Player Color: " + GameProperties.teamColors[this.playerTurn]);
-        if(this.canClaim(this.playerTurn, i)) {
-          console.log("Claimed: " + i);
-          this.claim(this.playerTurn, i);
-          this.playerTurn = 1 + (this.playerTurn + 1) % (this.playerCount - 1);
-          this.draw();
-        }
-      }
-    }
-  }
 
 
 
@@ -370,25 +325,11 @@ export class Map {
 
 
 
-  /*
-    Converts a hex to a pixel for the pointy hex layout.
-    Taken from https://github.com/Bockit/hex
-  */
-  hexToPixelPointy (q, r, size) {
-    let x = size * Math.sqrt(3) * (q + r / 2)
-    let y = size * (3 / 2) * r
-    return {x: x, y: y};
-  }
 
-  /*
-    Converts a hex to a pixel for the flat hex layout.
-    Taken from https://github.com/Bockit/hex
-  */
-  hexToPixelFlat (q, r, size) {
-    let x = size * (3 / 2) * q
-    let y = size * Math.sqrt(3) * (r + q / 2)
-    return {x: x, y: y};
-  }
+
+
+
+
 
 
 }

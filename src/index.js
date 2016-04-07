@@ -1,6 +1,5 @@
 import $ from 'jquery'
 import {Map} from "./map.js"
-import {MapCreationAnimator} from "./mapCreationAnimator.js"
 import {Hex} from "./hex.js"
 import {Node} from "./node.js"
 
